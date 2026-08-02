@@ -1,0 +1,28 @@
+name: dictado_ingles
+description: "App de entrenamiento auditivo y escritura en inglés mediante dictados."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # TTS nativo del dispositivo (Android/iOS). Gratis, sin API keys.
+  # Más adelante se puede reemplazar por ElevenLabs/Azure implementando
+  # la misma interfaz TtsService (ver lib/services/tts_service.dart).
+  flutter_tts: ^4.0.2
+
+  # Guardado local simple de progreso (sin backend por ahora).
+  shared_preferences: ^2.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
