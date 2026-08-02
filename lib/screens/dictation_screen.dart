@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/sentence.dart';
 import '../services/dictation_checker.dart';
 import '../services/tts_service.dart';
+import '../services/speech_service.dart';
 import '../widgets/result_view.dart';
 
 class DictationScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class DictationScreen extends StatefulWidget {
 
 class _DictationScreenState extends State<DictationScreen> {
   final TtsService _tts = TtsService();
+  final SpeechService _speech = SpeechService();
   final TextEditingController _inputController = TextEditingController();
 
   static const List<double> speeds = [
@@ -24,18 +26,29 @@ class _DictationScreenState extends State<DictationScreen> {
   double _speed = 1.0;
   int _currentIndex = 0;
   DictationResult? _result;
+  String _accent = 'US';
+
+  String? _spokenText;
+  bool _isListening = false;
 
   DictationSentence get _current => widget.sentences[_currentIndex];
+  bool get _isLastSentence => _currentIndex >= widget.sentences.length - 1;
 
   @override
   void dispose() {
     _inputController.dispose();
     _tts.stop();
+    _speech.stop();
     super.dispose();
   }
 
   Future<void> _playSentence() async {
     await _tts.speak(_current.text, speed: _speed);
+  }
+
+  Future<void> _changeAccent(String accent) async {
+    setState(() => _accent = accent);
+    await _tts.setAccent(accent);
   }
 
   void _checkAnswer() {
@@ -44,15 +57,35 @@ class _DictationScreenState extends State<DictationScreen> {
     setState(() => _result = result);
   }
 
-  bool get _isLastSentence => _currentIndex >= widget.sentences.length - 1;
-
   void _nextSentence() {
     if (_isLastSentence) return;
     setState(() {
       _currentIndex++;
       _inputController.clear();
       _result = null;
+      _spokenText = null;
     });
+  }
+
+  Future<void> _togglePronunciationPractice() async {
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
+      return;
+    }
+    setState(() {
+      _isListening = true;
+      _spokenText = null;
+    });
+    await _speech.listen(
+      accent: _accent,
+      onResult: (text, isFinal) {
+        setState(() {
+          _spokenText = text;
+          if (isFinal) _isListening = false;
+        });
+      },
+    );
   }
 
   @override
@@ -71,105 +104,22 @@ class _DictationScreenState extends State<DictationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Reproducción
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: 'US', label: Text('🇺🇸 Americano')),
+                          ButtonSegment(value: 'GB', label: Text('🇬🇧 Británico')),
+                        ],
+                        selected: {_accent},
+                        onSelectionChanged: (s) => _changeAccent(s.first),
+                      ),
+                      const SizedBox(height: 16),
                       IconButton.filled(
                         iconSize: 36,
                         padding: const EdgeInsets.all(20),
                         onPressed: _playSentence,
-                        icon: const Icon(Icons.volume_up),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text('Toca para escuchar la oración'),
-                      const SizedBox(height: 16),
-                      DropdownButton<double>(
-                        value: _speed,
-                        items: speeds
-                            .map((s) => DropdownMenuItem(
-                                  value: s,
-                                  child: Text('${s}x'),
-                                ))
-                            .toList(),
-                        onChanged: (v) => setState(() => _speed = v ?? 1.0),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Campo de escritura
-              TextField(
-                controller: _inputController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Escribe lo que escuchaste',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _checkAnswer,
-                      child: const Text('Revisar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _isLastSentence ? null : _nextSentence,
-                      child: Text(
-                        _isLastSentence ? 'Última oración' : 'Siguiente',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              if (_result != null) ...[
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 12),
-                ResultView(result: _result!),
-                if (_current.translationEs != null ||
-                    _current.grammarNote != null) ...[
-                  const SizedBox(height: 16),
-                  Card(
-                    color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_current.translationEs != null) ...[
-                            Text('Traducción',
-                                style: Theme.of(context).textTheme.labelLarge),
-                            Text(_current.translationEs!),
-                          ],
-                          if (_current.grammarNote != null) ...[
-                            const SizedBox(height: 8),
-                            Text('Gramática',
-                                style: Theme.of(context).textTheme.labelLarge),
-                            Text(_current.grammarNote!),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+                        icon: const Icon(
