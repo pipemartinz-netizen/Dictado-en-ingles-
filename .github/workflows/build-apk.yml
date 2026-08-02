@@ -22,6 +22,10 @@ jobs:
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts 2>/dev/null || true
           sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 36/' android/app/build.gradle 2>/dev/null || true
 
+      - name: Add microphone permission
+        run: |
+          sed -i 's/<manifest xmlns:android="http:\/\/schemas.android.com\/apk\/res\/android">/<manifest xmlns:android="http:\/\/schemas.android.com\/apk\/res\/android">\n    <uses-permission android:name="android.permission.RECORD_AUDIO" \/>\n    <uses-permission android:name="android.permission.INTERNET" \/>/' android/app/src/main/AndroidManifest.xml
+
       - run: flutter pub get
       - run: flutter build apk --release
 
