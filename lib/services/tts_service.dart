@@ -1,6 +1,8 @@
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Envuelve el motor de TTS. Soporta acento americano o británico.
+/// Envuelve el motor de TTS. Soporta acento americano o británico,
+/// y permite elegir entre las voces instaladas en el dispositivo.
 class TtsService {
   final FlutterTts _tts = FlutterTts();
   bool _initialized = false;
@@ -11,12 +13,13 @@ class TtsService {
     await _tts.setLanguage(_accent == 'US' ? 'en-US' : 'en-GB');
     await _tts.setPitch(1.0);
     _initialized = true;
+    await _applySavedVoice();
   }
 
-  /// Cambia el acento de la voz: 'US' (americano) o 'GB' (británico).
   Future<void> setAccent(String accent) async {
     _accent = accent;
     await _tts.setLanguage(accent == 'US' ? 'en-US' : 'en-GB');
+    await _applySavedVoice();
   }
 
   String get accent => _accent;
@@ -31,13 +34,38 @@ class TtsService {
 
   Future<void> stop() => _tts.stop();
 
-  Future<List<dynamic>> getAvailableVoices() async {
+  /// Devuelve solo las voces en inglés instaladas en el celular.
+  Future<List<Map<String, String>>> getEnglishVoices() async {
     await _ensureInit();
-    return await _tts.getVoices;
+    final voices = await _tts.getVoices;
+    final result = <Map<String, String>>[];
+    for (final v in voices) {
+      final map = Map<String, dynamic>.from(v as Map);
+      final locale = (map['locale'] ?? '').toString();
+      if (locale.toLowerCase().startsWith('en')) {
+        result.add({
+          'name': (map['name'] ?? '').toString(),
+          'locale': locale,
+        });
+      }
+    }
+    return result;
   }
 
-  Future<void> setVoice(Map<String, String> voice) async {
-    await _ensureInit();
-    await _tts.setVoice(voice);
+  /// Guarda y aplica la voz elegida por el usuario para el acento actual.
+  Future<void> setChosenVoice(String name, String locale) async {
+    await _tts.setVoice({'name': name, 'locale': locale});
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('voice_name_$_accent', name);
+    await prefs.setString('voice_locale_$_accent', locale);
+  }
+
+  Future<void> _applySavedVoice() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('voice_name_$_accent');
+    final locale = prefs.getString('voice_locale_$_accent');
+    if (name != null && locale != null) {
+      await _tts.setVoice({'name': name, 'locale': locale});
+    }
   }
 }
