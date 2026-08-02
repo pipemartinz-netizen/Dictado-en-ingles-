@@ -87,18 +87,3 @@ class _DictationScreenState extends State<DictationScreen> {
       },
     );
   }
-
-  Future<void> _openVoicePicker() async {
-    final voices = await _tts.getEnglishVoices();
-    if (!mounted) return;
-    if (voices.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se encontraron voces en inglés en este celular.')),
-      );
-      return;
-    }
-    // Quitamos duplicados por nombre
-    final seen = <String>{};
-    final unique = voices.where((v) => seen.add(v['name'] ?? '')).toList();
-
-    await showMo
